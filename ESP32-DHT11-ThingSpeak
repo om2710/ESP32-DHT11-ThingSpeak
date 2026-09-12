@@ -1,0 +1,132 @@
+#include <WiFi.h>
+#include <ThingSpeak.h>
+#include <DHT.h>
+
+// ===============================
+// Wi-Fi settings
+// ===============================
+const char* ssid = "IOT_Lab_35";
+const char* password = "123456789";
+
+// ===============================
+// ThingSpeak settings
+// ===============================
+unsigned long channelID = 3457069;
+
+const char*writeAPIKey = "I0H9OZ4VP1N70QFK";
+
+// ===============================
+// DHT11 settings
+// ===============================
+#define DHTPIN 4
+#define DHTTYPE DHT11
+
+DHT dht(DHTPIN, DHTTYPE);
+
+// ===============================
+// WiFi Client
+// ===============================
+WiFiClient client;
+
+// ===============================
+// Setup
+// ===============================
+void setup() {
+
+  Serial.begin(115200);
+
+  delay(1000);
+
+  Serial.println();
+  Serial.println("ESP32 DHT11 + ThingSpeak");
+  Serial.println("------------------------");
+
+  // Start DHT11
+  dht.begin();
+
+  // Connect to Wi-Fi
+  Serial.print("Connecting to Wi-Fi: ");
+  Serial.println(ssid);
+
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println();
+  Serial.println("WiFi connected!");
+
+  Serial.print("ESP32 IP Address: ");
+  Serial.println(WiFi.localIP());
+
+  // Start ThingSpeak
+  ThingSpeak.begin(client);
+
+  Serial.println("ThingSpeak initialized!");
+}
+
+// ===============================
+// Loop
+// ===============================
+void loop() {
+
+  // Read temperature
+  float temperature = dht.readTemperature();
+
+  // Read humidity
+  float humidity = dht.readHumidity();
+
+  // Check sensor readings
+  if (isnan(temperature) || isnan(humidity)) {
+
+    Serial.println("Failed to read from DHT11!");
+
+    delay(2000);
+
+    return;
+  }
+
+  // Display sensor values
+  Serial.println();
+  Serial.println("DHT11 Sensor Data");
+  Serial.println("------------------");
+
+  Serial.print("Temperature: ");
+  Serial.print(temperature);
+  Serial.println(" °C");
+
+  Serial.print("Humidity: ");
+  Serial.print(humidity);
+  Serial.println(" %");
+
+  // Send temperature to Field 1
+  ThingSpeak.setField(1, temperature);
+
+  // Send humidity to Field 2
+  ThingSpeak.setField(2, humidity);
+
+  Serial.println();
+  Serial.println("Sending data to ThingSpeak...");
+
+  // Write data to ThingSpeak
+  int response = ThingSpeak.writeFields(channelID, writeAPIKey);
+
+  // Check response
+  if (response == 200) {
+
+    Serial.println("Data sent successfully!");
+
+  } else {
+
+    Serial.print("ThingSpeak error. HTTP code: ");
+    Serial.println(response);
+  }
+
+  Serial.println("------------------");
+
+  // ThingSpeak requires a minimum 15-second update interval
+  delay(15000);
+}
